@@ -1,0 +1,18 @@
+# Normalize line endings for text, keep binaries untouched.
+* text=auto
+
+*.cpp   text eol=lf
+*.hpp   text eol=lf
+*.c     text eol=lf
+*.h     text eol=lf
+*.txt   text eol=lf
+*.cmake text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+
+CMakeLists.txt text eol=lf
+*.cmake.in     text eol=lf
+
+*.png  binary
+*.bin  binary
+*.ccap binary
