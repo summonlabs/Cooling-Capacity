@@ -87,7 +87,7 @@ expects, at minimum:
 - independent multi-process tests for writer authority and fencing.
 
 Tests must pass on their own. A hanging test is a defect to diagnose and fix,
-not to bound with a timeout. Do not add test timeouts.
+not to bound with a timeout.
 
 ## Pull requests
 
