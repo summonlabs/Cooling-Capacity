@@ -5,11 +5,7 @@ Cooling Capacity is the Data Center Control Plane (DCCP) runtime that owns
 usable now, where it is available, under which cooling dependencies and
 redundancy assumptions, and what evidence makes that answer authoritative.
 
-**DCCP position.** Data Center Control Plane, Tranche 2 — Facility Capacity and
-Placement. Repository 13 of the canonical 72-runtime DCCP. DCCP is the
-facility-wide composition and authority layer above Accelerated Systems
-Infrastructure (ASI) and Distributed Fabric Infrastructure (DFI). This
-repository owns the accounting of cooling capacity; it does not own cooling
+This repository owns the accounting of cooling capacity; it does not own cooling
 actuation, and it does not own placement.
 
 * Portable C++20 library, CMake, no third-party dependencies.
