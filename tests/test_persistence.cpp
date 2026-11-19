@@ -15,7 +15,11 @@
 #include "test_harness.hpp"
 #include "test_process.hpp"
 
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <thread>
 
 using namespace ccap_test;
 
@@ -288,4 +292,38 @@ CCAP_TEST(a_published_but_unreferenced_generation_stays_readable_and_harmless) {
   CCAP_CHECK_EQ(loaded->record_count(), 6U);
   CCAP_CHECK_ERR(store->load_generation(CapacityGeneration::from_value(99)),
                  ErrorCode::NotFound);
+}
+
+CCAP_TEST(a_publication_waits_for_a_reader_of_the_manifest) {
+  CCAP_CHECK_OK(directory, fresh_directory("ccap-test-persistence-reader"));
+  const ::ccap_test::Cleanup cleanup_guard(directory);
+  const ManualClock clock(fixture_now());
+  CCAP_CHECK_OK(engine, CoolingCapacityEngine::open(directory, write_options(clock)));
+  publish_facility(engine);
+  CCAP_CHECK_OK(builder, engine->begin_mutation());
+  EquipmentRecord unit = make_unit("crah-a", EquipmentKind::Crah, 410000);
+  CCAP_CHECK_VOID(builder.replace(unit));
+
+  bool reader_opened = false;
+  bool published = false;
+  {
+    // Another tool reading the store (an inspection, a backup, a scan) holds the
+    // manifest open while the next publication replaces it, and closes it
+    // shortly after.
+    std::ifstream reader(std::filesystem::path(directory) / "MANIFEST", std::ios::binary);
+    reader_opened = reader.is_open();
+    std::thread writer([&engine, &builder, &published] {
+      published = engine->publish(builder).ok();
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    reader.close();
+    writer.join();
+  }
+  CCAP_CHECK(reader_opened);
+  // The replacement waits for the reader instead of failing the publication
+  // after its generation file has been published.
+  CCAP_CHECK(published);
+  CCAP_CHECK_EQ(engine->snapshot()->generation().value(), 3U);
+  CCAP_CHECK_OK(generations, engine->generations());
+  CCAP_CHECK_EQ(generations.size(), 3U);
 }

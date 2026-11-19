@@ -480,12 +480,31 @@ Result<void> replace_file(const std::string& staging, const std::string& target,
   if (flush) {
     flags |= MOVEFILE_WRITE_THROUGH;
   }
-  if (MoveFileExW(from.c_str(), to.c_str(), flags) == 0) {
-    return Error(ErrorCode::IoFailure, "replacing the file failed")
-        .with("path", target)
-        .with("system_error", last_system_error_text());
+  // While a reader has the target open (an inspection, a backup, an antivirus or
+  // indexing scan) the replace fails until the reader closes it, so it is
+  // retried for a bounded time (about 2 s). A directory or a read-only file in
+  // the way is not transient and fails at once.
+  for (int attempt = 0;; ++attempt) {
+    if (MoveFileExW(from.c_str(), to.c_str(), flags) != 0) {
+      return Result<void>();
+    }
+    const DWORD code = GetLastError();
+    const DWORD attributes = GetFileAttributesW(to.c_str());
+    const bool blocked =
+        attributes != INVALID_FILE_ATTRIBUTES &&
+        (attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_READONLY)) != 0;
+    const bool transient = (code == ERROR_ACCESS_DENIED || code == ERROR_SHARING_VIOLATION ||
+                            code == ERROR_LOCK_VIOLATION) &&
+                           !blocked;
+    if (!transient || attempt >= 100) {
+      // The error text is read from the last error.
+      SetLastError(code);
+      return Error(ErrorCode::IoFailure, "replacing the file failed")
+          .with("path", target)
+          .with("system_error", last_system_error_text());
+    }
+    Sleep(20);
   }
-  return Result<void>();
 }
 
 Result<void> remove_file(const std::string& path) {
